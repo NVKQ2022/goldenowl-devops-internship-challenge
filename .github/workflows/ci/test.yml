@@ -1,0 +1,44 @@
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory containing package.json
+        required: false
+        type: string
+        default: src
+      node-version:
+        description: Node.js version
+        required: false
+        type: string
+        default: '20'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'npm'
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Lint
+        run: npm run lint:check
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Format check
+        run: npm run format:check
+        working-directory: ${{ inputs.working-directory }}
+
+      - name: Run tests
+        run: npm test
+        working-directory: ${{ inputs.working-directory }}
