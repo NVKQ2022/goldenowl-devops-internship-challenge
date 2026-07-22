@@ -40,13 +40,23 @@ jobs:
           echo "ecr_url=$URL" >> $GITHUB_OUTPUT
         working-directory: ${{ env.TF_WORKING_DIR }}
 
+  resolve-dockerhub:
+    runs-on: ubuntu-latest
+    outputs:
+      username: ${{ steps.resolve.outputs.username }}
+    steps:
+      - name: Resolve Docker Hub username
+        id: resolve
+        run: echo "username=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_OUTPUT
+
   build-and-push-dockerhub:
+    needs: resolve-dockerhub
     if: vars.REGISTRY_TYPE == 'dockerhub' || vars.REGISTRY_TYPE == 'both' || vars.REGISTRY_TYPE == ''
     uses: ./.github/workflows/build.yml
     with:
       context: src
       registry-type: dockerhub
-      image-tags: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}
+      image-tags: ${{ needs.resolve-dockerhub.outputs.username }}/${{ github.event.repository.name }}:${{ github.sha }}
     secrets:
       docker-username: ${{ secrets.DOCKER_USERNAME }}
       docker-password: ${{ secrets.DOCKER_PASSWORD }}
