@@ -42,7 +42,7 @@ jobs:
 
   build-and-push-dockerhub:
     if: vars.REGISTRY_TYPE == 'dockerhub' || vars.REGISTRY_TYPE == 'both' || vars.REGISTRY_TYPE == ''
-    uses: ./.github/workflows/ci/build.yml
+    uses: ./.github/workflows/build.yml
     with:
       context: src
       registry-type: dockerhub
@@ -54,7 +54,7 @@ jobs:
   build-and-push-ecr:
     needs: resolve-ecr
     if: vars.REGISTRY_TYPE == 'ecr' || vars.REGISTRY_TYPE == 'both'
-    uses: ./.github/workflows/ci/build.yml
+    uses: ./.github/workflows/build.yml
     with:
       context: src
       registry-type: ecr
