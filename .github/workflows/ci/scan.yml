@@ -1,0 +1,45 @@
+name: Scan Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      context:
+        description: Docker build context directory
+        required: false
+        type: string
+        default: src
+      image-name:
+        description: Name for the local Docker image
+        required: false
+        type: string
+        default: app:ci
+      severity-threshold:
+        description: Minimum severity to fail (CRITICAL, HIGH, etc.)
+        required: false
+        type: string
+        default: HIGH
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          load: true
+          tags: ${{ inputs.image-name }}
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ inputs.image-name }}
+          format: table
+          exit-code: 1
+          severity: ${{ inputs.severity-threshold }}

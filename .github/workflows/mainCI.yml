@@ -1,53 +1,65 @@
-name: CI
+name: Main CI
 
 on:
   push:
-    branches:
-      - main
-      - 'feature/**'
-  pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
 
 env:
-  REGISTRY_TYPE: both
-  WORKING_DIRECTORY: src
-  NODE_VERSION: '20'
-  DOCKER_CONTEXT: src
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  AWS_REGION: ap-southeast-1
-  ECR_REPOSITORY: ${{ github.event.repository.name }}
-  DOCKERHUB_TAGS: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}
-  ECR_TAGS: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.repository.name }}:${{ github.sha }}
+  TF_WORKING_DIR: ./terraform/env/test
 
 jobs:
-  test:
-    uses: ./.github/workflows/ci/test.yml
-    with:
-      working-directory: ${{ env.WORKING_DIRECTORY }}
-      node-version: ${{ env.NODE_VERSION }}
+  resolve-ecr:
+    runs-on: ubuntu-latest
+    outputs:
+      ecr_url: ${{ steps.get-ecr.outputs.ecr_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ vars.TERRAFORM_VERSION || '1.9.0' }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Get ECR URL from remote state
+        id: get-ecr
+        run: |
+          URL=$(terraform output -raw ecr_repository_url)
+          echo "ecr_url=$URL" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
   build-and-push-dockerhub:
-    needs: test
-    if: github.ref == 'refs/heads/main' && (env.REGISTRY_TYPE == 'dockerhub' || env.REGISTRY_TYPE == 'both')
+    if: vars.REGISTRY_TYPE == 'dockerhub' || vars.REGISTRY_TYPE == 'both' || vars.REGISTRY_TYPE == ''
     uses: ./.github/workflows/ci/build.yml
     with:
-      context: ${{ env.DOCKER_CONTEXT }}
+      context: src
       registry-type: dockerhub
-      image-tags: ${{ env.DOCKERHUB_TAGS }}
+      image-tags: ${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}
     secrets:
-      docker-username: ${{ env.DOCKER_USERNAME }}
-      docker-password: ${{ env.DOCKER_PASSWORD }}
+      docker-username: ${{ secrets.DOCKER_USERNAME }}
+      docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
   build-and-push-ecr:
-    needs: test
-    if: github.ref == 'refs/heads/main' && (env.REGISTRY_TYPE == 'ecr' || env.REGISTRY_TYPE == 'both')
+    needs: resolve-ecr
+    if: vars.REGISTRY_TYPE == 'ecr' || vars.REGISTRY_TYPE == 'both'
     uses: ./.github/workflows/ci/build.yml
     with:
-      context: ${{ env.DOCKER_CONTEXT }}
+      context: src
       registry-type: ecr
-      aws-region: ${{ env.AWS_REGION }}
-      image-tags: ${{ env.ECR_TAGS }}
+      aws-region: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+      image-tags: ${{ needs.resolve-ecr.outputs.ecr_url }}:${{ github.sha }}
     secrets:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

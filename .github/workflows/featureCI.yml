@@ -1,0 +1,28 @@
+name: Feature CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+    paths:
+      - 'src/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci/test.yml
+    with:
+      working-directory: ${{ vars.WORKING_DIRECTORY || 'src' }}
+      node-version: ${{ vars.NODE_VERSION || '20' }}
+
+  scan:
+    needs: test
+    uses: ./.github/workflows/ci/scan.yml
+    with:
+      context: src
+      image-name: app:ci
+      severity-threshold: ${{ vars.SEVERITY_THRESHOLD || 'HIGH' }}

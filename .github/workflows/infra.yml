@@ -1,0 +1,137 @@
+name: Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+      - 'infra/**'
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infra.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infra.yml'
+  workflow_dispatch:
+
+env:
+  TF_VERSION: ${{ vars.TERRAFORM_VERSION || '1.9.0' }}
+  TF_WORKING_DIR: ${{ vars.TF_WORKING_DIR || './terraform/env/test' }}
+
+jobs:
+  checkov:
+    name: Checkov Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov on Terraform
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ env.TF_WORKING_DIR }}
+          framework: terraform
+          soft_fail: true
+
+  terraform-fmt:
+    name: Terraform Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: [checkov, terraform-fmt]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: [terraform-validate]
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [terraform-plan]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
