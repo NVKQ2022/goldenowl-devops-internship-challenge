@@ -14,14 +14,14 @@ on:
 
 jobs:
   test:
-    uses: ./.github/workflows/ci/test.yml
+    uses: ./.github/workflows/test.yml
     with:
       working-directory: ${{ vars.WORKING_DIRECTORY || 'src' }}
       node-version: ${{ vars.NODE_VERSION || '20' }}
 
   scan:
     needs: test
-    uses: ./.github/workflows/ci/scan.yml
+    uses: ./.github/workflows/scan.yml
     with:
       context: src
       image-name: app:ci
