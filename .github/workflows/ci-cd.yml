@@ -1,17 +1,38 @@
-name: Main CI
+name: CI/CD
 
 on:
   push:
+    branches:
+      - 'feature/**'
+      - main
+    paths:
+      - 'src/**'
+  pull_request:
     branches: [main]
     paths:
       - 'src/**'
   workflow_dispatch:
 
 env:
-  TF_WORKING_DIR: terraform/env/
+  TF_WORKING_DIR: terraform/env
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    with:
+      working-directory: ${{ vars.WORKING_DIRECTORY || 'src' }}
+      node-version: ${{ vars.NODE_VERSION || '20' }}
+
+  scan:
+    needs: test
+    uses: ./.github/workflows/scan.yml
+    with:
+      context: src
+      image-name: app:ci
+      severity-threshold: ${{ vars.SEVERITY_THRESHOLD || 'HIGH' }}
+
   resolve-ecr:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       ecr_url: ${{ steps.get-ecr.outputs.ecr_url }}
@@ -40,30 +61,31 @@ jobs:
           echo "ecr_url=$URL" >> $GITHUB_OUTPUT
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-  resolve-dockerhub:
-    runs-on: ubuntu-latest
-    outputs:
-      username: ${{ steps.resolve.outputs.username }}
-    steps:
-      - name: Resolve Docker Hub username
-        id: resolve
-        run: echo "username=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_OUTPUT
+  # resolve-dockerhub:
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     username: ${{ steps.resolve.outputs.username }}
+  #   steps:
+  #     - name: Resolve Docker Hub username
+  #       id: resolve
+  #       run: echo "username=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_OUTPUT
 
-  build-and-push-dockerhub:
-    needs: resolve-dockerhub
-    if: vars.REGISTRY_TYPE == 'dockerhub' || vars.REGISTRY_TYPE == 'both' || vars.REGISTRY_TYPE == ''
-    uses: ./.github/workflows/build.yml
-    with:
-      context: src
-      registry-type: dockerhub
-      image-tags: ${{ needs.resolve-dockerhub.outputs.username }}/${{ github.event.repository.name }}:${{ github.sha }}
-    secrets:
-      docker-username: ${{ secrets.DOCKER_USERNAME }}
-      docker-password: ${{ secrets.DOCKER_PASSWORD }}
+  # build-and-push-dockerhub:
+  #   needs: resolve-dockerhub
+  #   if: github.ref == 'refs/heads/main' && (vars.REGISTRY_TYPE == 'dockerhub' || vars.REGISTRY_TYPE == 'both' || vars.REGISTRY_TYPE == '')
+  #   uses: ./.github/workflows/build.yml
+  #   with:
+  #     context: src
+  #     registry-type: dockerhub
+  #     image-tags: ${{ needs.resolve-dockerhub.outputs.username }}/${{ github.event.repository.name }}:${{ github.sha }}
+  #   secrets:
+  #     docker-username: ${{ secrets.DOCKER_USERNAME }}
+  #     docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
   build-and-push-ecr:
     needs: resolve-ecr
-    if: vars.REGISTRY_TYPE == 'ecr' || vars.REGISTRY_TYPE == 'both'
+    if: github.ref == 'refs/heads/main' && (vars.REGISTRY_TYPE == 'ecr' || vars.REGISTRY_TYPE == 'both')
     uses: ./.github/workflows/build.yml
     with:
       context: src
@@ -75,10 +97,9 @@ jobs:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   deploy:
-    name: Terraform Apply
-    runs-on: ubuntu-latest
     needs: [resolve-ecr, build-and-push-ecr, build-and-push-dockerhub]
-    if: always() && (needs.build-and-push-ecr.result == 'success' || needs.build-and-push-dockerhub.result == 'success')
+    if: github.ref == 'refs/heads/main' && (needs.build-and-push-ecr.result == 'success' || needs.build-and-push-dockerhub.result == 'success')
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -86,11 +107,10 @@ jobs:
         id: image
         run: |
           if [[ "${{ needs.build-and-push-ecr.result }}" == "success" ]]; then
-            URL="${{ needs.resolve-ecr.outputs.ecr_url }}:${{ github.sha }}"
+            echo "url=${{ needs.resolve-ecr.outputs.ecr_url }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else
-            URL="${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}"
+            echo "url=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - uses: hashicorp/setup-terraform@v3
         with:
