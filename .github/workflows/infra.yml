@@ -17,7 +17,7 @@ on:
 
 env:
   TF_VERSION: ${{ vars.TERRAFORM_VERSION || '1.9.0' }}
-  TF_WORKING_DIR: ${{ vars.TF_WORKING_DIR || './terraform/env/test' }}
+  TF_WORKING_DIR: ${{ vars.TF_WORKING_DIR || 'terraform/env/test' }}
 
 jobs:
   checkov:
