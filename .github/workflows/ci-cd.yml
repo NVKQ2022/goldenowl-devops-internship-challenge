@@ -84,7 +84,7 @@ jobs:
   #     docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
   build-and-push-ecr:
-    needs: resolve-ecr
+    needs: [ resolve-ecr, scan ]
     if: github.ref == 'refs/heads/main' && (vars.REGISTRY_TYPE == 'ecr' || vars.REGISTRY_TYPE == 'both')
     uses: ./.github/workflows/build.yml
     with:
