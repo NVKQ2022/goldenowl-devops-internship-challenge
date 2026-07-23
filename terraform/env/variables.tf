@@ -78,9 +78,3 @@ variable "enable_vpc_endpoints" {
   type        = bool
   default     = true
 }
-
-variable "enable_vpc_endpoints" {
-  description = "Whether to enable VPC endpoints for S3 and DynamoDB"
-  type        = bool
-  default     = false
-}
