@@ -72,9 +72,9 @@ resource "aws_security_group" "vpc_endpoints" {
 }
 
 resource "aws_vpc_endpoint" "s3" {
-  count       = var.enable_vpc_endpoints ? 1 : 0
-  vpc_id      = aws_vpc.this.id
-  service_name = "com.amazonaws.${data.aws_region.current.name}.s3"
+  count             = var.enable_vpc_endpoints ? 1 : 0
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
   vpc_endpoint_type = "Gateway"
 
   route_table_ids = distinct(concat(

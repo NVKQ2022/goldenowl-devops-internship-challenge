@@ -1,6 +1,6 @@
 resource "aws_lb_target_group" "this" {
-  name        = var.name
-  vpc_id      = var.vpc_id
+  name   = var.name
+  vpc_id = var.vpc_id
 
   target_type = var.target_type
 
