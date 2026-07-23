@@ -97,7 +97,7 @@ jobs:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   deploy:
-    needs: [resolve-ecr, build-and-push-ecr, build-and-push-dockerhub]
+    needs: [resolve-ecr, build-and-push-ecr]
     if: github.ref == 'refs/heads/main' && (needs.build-and-push-ecr.result == 'success' || needs.build-and-push-dockerhub.result == 'success')
     runs-on: ubuntu-latest
     steps:
