@@ -9,6 +9,4 @@ router.get('/', (req, res) => {
     res.json(responseJson)
 })
 
-module.exports = router
-
-// test1
+module.exports = router//test1
