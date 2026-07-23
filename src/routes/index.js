@@ -4,7 +4,7 @@ const router = Router()
 
 router.get('/', (req, res) => {
     const responseJson = {
-        message: 'Welcome warriors to Golden Owl - CI/CD Pipeline Demo!',
+        message: 'Welcome warriors to Golden Owl!',
     }
     res.json(responseJson)
 })
