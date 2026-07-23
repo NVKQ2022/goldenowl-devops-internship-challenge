@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/test.yml
     with:
       working-directory: ${{ vars.WORKING_DIRECTORY || 'src' }}
-      node-version: ${{ vars.NODE_VERSION || '20' }}
+      node-version: ${{ vars.NODE_VERSION || '22' }}
 
   scan:
     needs: test
