@@ -17,3 +17,8 @@ output "ecs_service_name" {
   description = "Name of the ECS service"
   value       = module.ecs_app.service_name
 }
+
+output "app_url" {
+  description = "Application URL"
+  value       = var.subdomain != "" ? "https://${var.subdomain}.${var.domain_name}" : "https://${var.domain_name}"
+}

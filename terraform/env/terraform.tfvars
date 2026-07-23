@@ -14,3 +14,6 @@ private_subnets      = ["10.0.10.0/24", "10.0.11.0/24"]
 availability_zones   = ["ap-southeast-1a", "ap-southeast-1b"]
 nat_gateway_count    = 0
 enable_vpc_endpoints = true
+
+domain_name = "gos.com"
+subdomain   = "app"

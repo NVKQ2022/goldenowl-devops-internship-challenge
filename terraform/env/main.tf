@@ -175,3 +175,28 @@ module "ecs_app" {
   cpu_target_value   = 70
 }
 
+################################################################################
+# Route53
+################################################################################
+
+module "route53_hosted_zone" {
+  source = "../modules/route53-hosted-zone"
+
+  name    = var.domain_name
+  comment = "Hosted zone for ${var.domain_name}"
+}
+
+module "route53_record" {
+  source = "../modules/route53-record"
+
+  zone_id = module.route53_hosted_zone.id
+  name    = var.subdomain != "" ? "${var.subdomain}.${var.domain_name}" : var.domain_name
+  type    = "A"
+
+  alias = {
+    name                   = module.alb.dns_name
+    zone_id                = module.alb.zone_id
+    evaluate_target_health = true
+  }
+}
+

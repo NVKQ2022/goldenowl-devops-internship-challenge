@@ -78,3 +78,14 @@ variable "enable_vpc_endpoints" {
   type        = bool
   default     = true
 }
+
+variable "domain_name" {
+  description = "Domain name for Route53 hosted zone (e.g., example.com)"
+  type        = string
+}
+
+variable "subdomain" {
+  description = "Subdomain prefix (e.g., app → app.example.com)"
+  type        = string
+  default     = "app"
+}
