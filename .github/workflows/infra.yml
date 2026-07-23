@@ -126,12 +126,13 @@ jobs:
         run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: ${{ env.TF_WORKING_DIR }}
+      - name: Get current container image from state
+        id: image
+        run: |
+          CURRENT=$(terraform state show 'module.ecs_app.aws_ecs_task_definition.this' 2>/dev/null | grep '"image"' | head -1 | awk -F'"' '{print $2}')
+          echo "current_image=${CURRENT:-nginx:latest}" >> "$GITHUB_OUTPUT"
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve -var="container_image=${{ steps.image.outputs.current_image }}"
         working-directory: ${{ env.TF_WORKING_DIR }}
