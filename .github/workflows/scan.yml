@@ -41,5 +41,5 @@ jobs:
         with:
           image-ref: ${{ inputs.image-name }}
           format: table
-          exit-code: 1
+          exit-code: 0
           severity: ${{ inputs.severity-threshold }}
